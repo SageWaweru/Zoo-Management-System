@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>{{ zoo_name }}</title>
+</head>
+<body style="background-color: rgb(13, 90, 90); align-items: center;">
+  
+    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="#">Navbar</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link active" aria-current="page" href="{{ url_for('home') }}">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('employee') }}">Employee</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">Tickets</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+    <div class="container mt-4 align-items-center">
+    <h1 style="color:bisque; text-align: center;">Welcome to {{ zoo_name }} management system!</h1>
+    <h3 style="color: bisque; text-align: center;">Take a look at our animals</h3>
+    <div>
+    <ul class="row mt-4 ">
+        {% for animal in animals %}
+            <li class="col-md-3 mb-3 list-unstyled card mx-2">
+                <h4 style="text-transform: capitalize;">{{ animal.name }} - {{ animal.species }} ({{ animal.gender }})</h4>
+                <img src="{{ url_for('static', filename=animal.image_url) }}" alt="{{ animal.species }}" width="250" height="300" style="margin-bottom: .8rem; border-radius:.5rem;">
+            </li>
+        {% endfor %}
+    </ul>
+    </div>
+    </div>
+</body>
+</html>
