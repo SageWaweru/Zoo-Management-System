@@ -6,40 +6,140 @@
 </head>
 <body style="background-color: rgb(13, 90, 90); align-items: center;">
   
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="#">Navbar</a>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
+    <div class="container-fluid">
+        <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;">
+            JungleHaven
+        </h1>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarNav">
+        </button>
+        <div class="collapse navbar-collapse justify-content-end px-4" id="navbarNav">
             <ul class="navbar-nav">
-              <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="{{ url_for('home') }}">Home</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('employee') }}">Employee</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="#">Tickets</a>
-              </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
+                </li>
+                {% if current_user.is_authenticated %}
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                </li>
+                {% else %}
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                </li>
+                {% endif %}
+
             </ul>
-          </div>
         </div>
-      </nav>
-    <div class="container mt-4 align-items-center">
-    <h1 style="color:bisque; text-align: center;">Welcome to {{ zoo_name }} management system!</h1>
-    <h3 style="color: bisque; text-align: center;">Take a look at our animals</h3>
-    <div>
-    <ul class="row mt-4 ">
-        {% for animal in animals %}
-            <li class="col-md-3 mb-3 list-unstyled card mx-2">
-                <h4 style="text-transform: capitalize;">{{ animal.name }} - {{ animal.species }} ({{ animal.gender }})</h4>
-                <img src="{{ url_for('static', filename=animal.image_url) }}" alt="{{ animal.species }}" width="250" height="300" style="margin-bottom: .8rem; border-radius:.5rem;">
-            </li>
-        {% endfor %}
-    </ul>
     </div>
+</nav>
+<div class="container mt-4 align-items-center">
+    <h1 style="color:white; text-align: center;">Welcome to {{ zoo_name }} !</h1>
+    <h3 style="color: white; text-align: center;">Take a look at our animals</h3>
+    <div class="container">
+        <ul class="row mt-4 mx-auto" style="background-color:white; border-radius: .5rem; padding: 1rem;">
+            {% for animal in animals %}
+                <li class="col-md-3 mb-3 list-unstyled text-center">
+                    <h4 style="text-transform: capitalize;">{{ animal.name }} - {{ animal.species }}</h4>
+                    <img src="{{ url_for('static', filename=animal.image_url) }}" alt="{{ animal.species }}" width="250" height="300" style="margin-bottom: .8rem; border-radius:.5rem;">
+                </li>
+            {% endfor %}
+        </ul>
     </div>
+        </div>
+        <img src="static/images/zoo.png" alt=""  style="width: 98.8vw; margin-top: 4rem;">
+
+            <div class="row mx-auto" style="background-color:white; padding: 1rem;">
+                <div class="col-lg-6 mx-auto mt-4" style="border: 1px solid;">
+                    <article class="p-4">
+                        <h1>Zoo Hours</h1>
+                        <h3>Regular Hours</h3>
+                        <h3 class="mt-3" style="color: rgb(13, 90, 90);">Open Thursday thru Monday <br> 9:30 AM–3 PM</h3>
+                            
+                        <p>
+                            Through December 31, 2024
+                            Last admission is at 1:30 PM. Reservations required for General Admission.
+                        </p>
+                        
+                        <h3 class="mt-5"> Holiday Hours</h3>
+                        <h3 class="mt-3 mb-2" style="color: rgb(168, 10, 10);">Christmas Eve, Christmas Day, & New Year’s Eve</h3>
+                        <h5>Closed</h5><br>
+                        
+                        <p>Enjoy a safe & happy holiday!</p>
+                        <h3 class="mt-5" style="color: rgb(13, 90, 90);">LumiNature</h3>
+
+                        <p>
+                            LumiNature
+                            
+                            Open 5 PM to 9 PM <br><br>
+                            Available select nights through January 4. Advance online registration required.
+                        </p>
+                    </article>
+                </div>
+                <div class="col-lg-6 mt-4 p-4" >
+                    <h1>Zoo Admission</h1>
+                    <table class="table">
+                        <tr>
+                            <td>Members</td>
+                            <td>Free</td>
+                        </tr>
+
+                        <tr>
+                            <td>Children (Ages 2+)</td>
+                            <td>Ksh 100</td>
+
+                        </tr>
+                        <tr>
+                            <td>Children Under 2</td>
+                            <td>Free</td>
+                        </tr>
+                        <tr>
+                            <td>Adults</td>
+                            <td>ksh 200</td>
+
+                        </tr>
+                        <tr>
+                            <td>Elderly</td>
+                            <td>Ksh 150</td>
+
+                        </tr>
+                    </table>
+                    <a  class="nav-link" style="color: rgb(13, 90, 90); font-size: 1.5rem;" href="{{url_for('tickets_page')}}">Get Tickets Now ⏩</a>
+                      
+                    <h3 class="mt-5 mb-2">Ticket Bundles & Discounted Admission(<span style="color: rgb(13, 90, 90);">Coming Soon</span>)</h3>
+                        
+                        
+                        Get ready to take advantage of our special offers on admission for active-duty military and veterans, teachers, and more.
+                        University pass for students in surrounding universities offering up to 80% discount and free parking for members.
+                        
+                </div>
+    
+        </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>

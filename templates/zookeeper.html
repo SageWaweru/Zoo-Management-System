@@ -1,11 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>{{ zoo_name }} - Zookeeper Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
-    <h1>Hi</h1>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
+        <div class="container-fluid">
+            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;">
+                JungleHaven
+            </h1>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end px-4" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
+                    </li>
+                    {% if current_user.is_authenticated %}
+    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                    </li>
+                    {% else %}
+    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                    </li>
+                    {% endif %}
+    
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+
+    <div class="container mb-5">
+
+        <h2 class="text-center mt-3">{{ zoo_name }} - Zookeeper Interface</h2>
+
+        <div class="container">
+            <ul class="list-unstyled row mt-3 p-4 mx-auto" style="border: 1px solid;">
+                {% for animal in animals %}
+                <li class="col-md-3 mb-4 text-center">
+                    <div style="text-transform: capitalize;">
+                        <img src="{{ url_for('static', filename=animal.image_url) }}" alt="{{ animal.species }}"
+                            width="250" height="300" class="mb-3">
+                        <h3>{{ animal.name }}</h3>
+                        <p>Species: {{ animal.species }}</p>
+                        <p>Gender: {{ animal.gender }}</p>
+                        <p>Food: {{ animal.food }}</p>
+                        <button class="btn" style="color: white; background-color: rgb(13, 90, 90);">
+                            <a class="nav-link" href="{{url_for('health_status', animal_name=animal.name)}}">Health Status</a>
+                        </button>
+                        <button class="btn" style="color: white; background-color: rgb(13, 90, 90);">
+                            <a class="nav-link" href="{{ url_for('edit_animal', animal_name = animal.name) }}">Edit Details</a>
+                        </button>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+                <div class="row">
+            <div class="col-12 d-flex justify-content-center">
+            <a href="{{ url_for('add_animal') }}" class="btn mx-2 w-75 text-center mt-2"
+                style="background-color: rgb(13, 90, 90); color: white;">Add And Remove Animals</a>
+            <form method="POST" action="{{ url_for('trigger_event') }}" class=" mt-2 w-50 mx-auto">
+                <select name="event_type" class="mb-2 w-75">
+                    <option value="feeding">Feeding Time</option>
+                    <option value="cleaning">Cleaning</option>
+                    <option value="random_event">Random Event</option>
+                </select> <br>
+                <button type="submit" class="btn w-75"
+                    style=" background-color: rgb(13, 90, 90); color: white;">Simulate Event</button>
+            </form>
+            </div>
+        </div>
+
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            {% if category == 'add_animal' %}
+            <div class="alert alert-success mt-2">{{ message }}</div>
+            {% elif category == 'delete_animal' %}
+            <div class="alert alert-warning mt-2">{{ message }}</div>
+            {% elif category == 'edit_animal' %}
+            <div class="alert alert-info mt-2">{{ message }}</div>
+            {% elif category == 'health_update' %}
+            <div class="alert alert-success mt-2">{{ message }}</div>
+            {% elif category == 'event_simulation' %}
+            <div class="alert alert-primary mt-2">{{ message }}</div>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
+
+
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>

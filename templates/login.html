@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+<body>
+    <div class="container my-5">
+        <div class="card shadow-lg" style="max-width: 600px; margin: 0 auto;">
+            <div class="card-header text-center text-white" style="background-color: rgb(13, 90, 90);">
+                <h2>Login Form</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="email" class="font-weight-bold">Email:</label><br>
+                        <input type="email" name="email" required class="w-100"> <br>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="font-weight-bold">Password:</label><br>
+                        <input type="password" name="password" required class="w-100"><br>
+                    </div>
+                    
+                    <div class="form-group d-flex justify-content-between align-items-center mt-3">
+                        <button type="submit" class="btn w-50 text-white"
+                            style="background-color: rgb(13, 90, 90);">Login</button>
+                            <a class="nav-link" style="color: rgb(13, 90, 90); text-decoration: underline;"
+                        href="{{url_for('register')}}">Don't have an account? Register</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
