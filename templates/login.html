@@ -72,36 +72,33 @@
                     // Get the Firebase ID token
                     user.getIdToken()
                         .then((idToken) => {
-                            // Send the token to the server for verification
-                            fetch('/verify_token', {
+                            // Send the ID token to the backend
+                            fetch('/login', {
                                 method: 'POST',
                                 headers: {
-                                    'Content-Type': 'application/json',
+                                    'Content-Type': 'application/json',  // Set the correct content type
                                 },
-                                body: JSON.stringify({ token: idToken })
+                                body: JSON.stringify({ id_token: idToken })  // Send the token in the JSON body
                             })
                             .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    // Redirect to the homepage
-                                    window.location.href = "http://127.0.0.1:5000"; // Adjust this URL as needed
+                                    window.location.href = 'http://127.0.0.1:5000';  // Redirect to the home page
                                 } else {
                                     alert("Authentication failed");
                                 }
                             })
-                            .catch(error => console.error("Error sending token to Flask:", error));
+                            .catch(error => console.error("Error during login:", error));
                         })
                         .catch((error) => {
-                            console.error("Error getting ID token:", error.message);
-                            alert("Error: " + error.message);
+                            console.error("Error getting ID token:", error);
                         });
                 })
                 .catch((error) => {
-                    console.error("Login error:", error.message);
-                    alert("Error: " + error.message);  // Display a user-friendly error message
+                    console.error("Error during sign-in:", error);
                 });
         });
     </script>
-    </body>
+        </body>
 
 </html>

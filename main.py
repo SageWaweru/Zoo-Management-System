@@ -2,18 +2,16 @@ from zoo import Zoo
 from zookeeper import Zookeeper
 from animal import Animal, Mammal, Bird, Reptile
 from events import random_event 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
+from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
 import firebase_admin
 from firebase_admin import auth, credentials
 from firebase_admin.exceptions import FirebaseError
 from flask_session import Session
-from werkzeug.utils import secure_filename
-from functools import wraps
 from datetime import timedelta
-
-
+import logging
 
 # Initialize Flask app and configurations
 app = Flask(__name__)
@@ -24,7 +22,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Set session timeout to 7 days.
-
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 Session(app)
 
@@ -46,11 +44,11 @@ login_manager.init_app(app)
 
 # User class for Flask-Login integration
 class User(UserMixin):
-    def __init__(self, email, uid, claims=None):
+    def __init__(self, email, uid, role=None):
         self.id = uid
         self.email = email
         self.uid = uid
-        self.claims = claims or {}
+        self.role = role
     
     def get_id(self):
         return self.id     
@@ -58,24 +56,46 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     try:
+        # Retrieve the user from Firebase using the user_id (typically the uid)
         firebase_user = auth.get_user(user_id)
-        return User(email=firebase_user.email, uid=firebase_user.uid, claims=firebase_user.custom_claims)
-    except auth.UserNotFoundError:
-        return None
-    
+        # Get custom claims or set a default role
+        role = firebase_user.custom_claims.get('role', 'guest') if firebase_user.custom_claims else 'guest'
+        # Return the User object
+        return User(email=firebase_user.email, uid=firebase_user.uid, role=role)
+    except Exception as e:
+        print(f"Error loading user: {e}")
+        return None  # Return None if the user can't be loaded
+
+def assign_role(user_id, role):
+    # Assign custom claim (role)
+    auth.set_custom_user_claims(user_id, {'role': role})
+
+def check_user_role(uid):
+    try:
+        user = auth.get_user(uid)  # Firebase function
+        claims = user.custom_claims  # Firebase custom claims
+        return claims.get('role', 'guest')  # Get role from custom claims
+    except Exception as e:
+        flash(f"Error fetching user claims: {str(e)}", "danger")
+        return 'guest'  # Return a default role in case of failure
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    session.clear()
+
     if request.method == "POST":
         email = request.form['email']
         password = request.form['password']
+        session['user'] = email
+        print(f"Registering user: {email}")
 
         try:
             user = auth.create_user(email=email, password=password)
             uid = user.uid
             claims = user.custom_claims if hasattr(user, 'custom_claims') else {}
 
-            user_obj = User(email=email, uid=uid, claims=claims)
-            login_user(user_obj) 
+            user_obj = User(email=email, uid=uid, role=claims.get('role', 'guest'))
+            login_user(user_obj)  # Log the user in using Flask-Login
 
             flash("Registration successful! Please log in.", "success")
             return redirect(url_for("login"))
@@ -84,42 +104,45 @@ def register():
     
     return render_template("register.html")
 
-# Login route
-def authenticate_user(id_token):
-    try:
-        # Verify the Firebase ID token and decode the user's information
-        decoded_token = auth.verify_id_token(id_token)
-        return decoded_token  # This contains the user's Firebase UID and other info
-    except auth.InvalidIdTokenError:
-        return None
 
-@app.before_request
-def check_login():
-    print(session)  # Print the session data to see its state
-    if 'user' not in session and request.endpoint not in ['login', 'register']:
-        return redirect(url_for('login'))  # Redirect to login if not logged in and trying to access other pages
+
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if 'user_id' in session:  # If the user is already logged in, redirect to home
+    session.clear()  # Clear previous session data
+
+    if current_user.is_authenticated:  # If the user is already logged in, redirect to home
         return redirect(url_for('home'))
-    
+
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        
-        # Authenticate the user (verify email and password using Firebase)
-        decoded_token = authenticate_user(email, password)
-        if decoded_token:
-            user_obj = User(email=email, uid=decoded_token['uid'], claims=decoded_token.get('claims'))
-            login_user(user_obj)  # Log the user in with Flask-Login
+        data = request.get_json()  # Get the JSON data from the request body
+        id_token = data.get('id_token')  # Extract id_token from JSON body
+        print(f"Logging in user with ID token: {id_token}")
+
+        if not id_token:
+            return jsonify({"success": False, "error": "ID token is missing"}), 400
+
+        try:
+            # Verify the Firebase ID token and decode the user's information
+            decoded_token = auth.verify_id_token(id_token)
+            email = decoded_token['email']  # Get the email from the decoded token
+            uid = decoded_token['uid']  # Get the Firebase UID
+            role = check_user_role(uid)  # Get the user role
+            
+            # Create the user object
+            user_obj = User(email=email, uid=uid, role=role)
+
+            # Log the user in using Flask-Login
+            login_user(user_obj)
 
             flash("Login successful!", "success")
-            return redirect(url_for('home'))
-        else:
+            return jsonify({"success": True, "redirect": url_for('home')}), 200
+        except Exception as e:
             flash("Invalid login credentials", "danger")
-    
+            print(f"Error verifying token: {e}")
+            return jsonify({"success": False, "error": "Invalid token"}), 400
+
     return render_template('login.html')
 
 @app.route("/logout")
@@ -128,20 +151,99 @@ def logout():
     return redirect(url_for('home'))
 
 # Firebase Token verification (if using Firebase token from frontend)
+logging.basicConfig(level=logging.INFO)
+
 @app.route('/verify_token', methods=['POST'])
 def verify_token():
-    token = request.json.get('token')  # Firebase ID token sent from frontend
+    token = request.json.get('token')  # Get the Firebase ID token from the request
+    
+    if not token:
+        # Handle missing token
+        logging.warning("No token provided in the request.")
+        return jsonify({'success': False, 'error': 'Token is required'}), 400
 
     try:
+        # Verify the Firebase ID token
+        logging.info(f"Received token: {token}")
         decoded_token = auth.verify_id_token(token)
-        uid = decoded_token['uid']  # Get user UID from the decoded token
-        session['uid'] = uid  # Store UID in session
+        uid = decoded_token['uid']  # Extract user UID from decoded token
+
+        # Store UID and user role in the session
+        session['uid'] = uid
+        session['user_role'] = check_user_role(uid)  # Ensure this function is defined properly
+
+        logging.info(f"User verified successfully with UID: {uid}")
+        logging.debug(f"Session data: {session}")
         return jsonify({'success': True, 'uid': uid})
+    
+    except auth.InvalidIdTokenError:
+        logging.error("Invalid ID token.")
+        return jsonify({'success': False, 'error': 'Invalid token'}), 400
+    
+    except auth.ExpiredIdTokenError:
+        logging.error("Expired ID token.")
+        return jsonify({'success': False, 'error': 'Token has expired'}), 400
+    
+    except auth.RevokedIdTokenError:
+        logging.error("Revoked ID token.")
+        return jsonify({'success': False, 'error': 'Token has been revoked'}), 400
+
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        # Catch any other exceptions
+        logging.exception("Unexpected error during token verification.")
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'}), 400
 
+@app.route('/admin')
+def admin():
+    return render_template('admin.html')
 
+@app.route('/set-employee', methods=['POST'])
+def set_employee():
+    try:
+        user_id = request.json.get('user_id')
 
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        auth.set_custom_user_claims(user_id, {'role': 'employee'})
+
+        return jsonify({"message": f"User {user_id} has been marked as an employee."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/remove-employee', methods=['POST'])
+def remove_employee():
+    try:
+        user_id = request.json.get('user_id')
+
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
+        auth.set_custom_user_claims(user_id, {'role': 'user'})
+
+        return jsonify({"message": f"User {user_id} is no longer an employee."}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route('/get-employees', methods=['GET'])
+def get_employees():
+    try:
+        employee_list = []
+
+        users = auth.list_users()
+
+        for user in users.users:
+            if user.custom_claims and user.custom_claims.get('role') == 'employee':
+                employee_list.append(user.email)  
+
+        return jsonify({"employees": employee_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 zoo_name = "Jungle Haven Zoo"
 animals = [
         Mammal("Lea", "Lion", "Female", 5, "Meat"),
@@ -154,48 +256,35 @@ animals = [
 
 zookeeper = Zookeeper("Sage", "Jungle Haven Zoo")
 
+
 @app.route("/")
 def home():
-    print("Session data:", session)  # Print session data to debug
-    if 'user' not in session:
-        print("User is not logged in.")
+    if not current_user.is_authenticated:  # Check if the user is logged in
         return redirect(url_for('login'))
-    
-    print("User is logged in:", session['user'])
-    return render_template(
-        "home.html", user_role=session.get('user_role', 'guest'), zoo_name=zoo_name, animals=animals
-    )
 
+    return render_template(
+        "home.html", user_role=current_user.role, zoo_name=zoo_name, animals=animals
+    )
 @app.route("/zookeeper", methods=["GET", "POST"])
 @login_required
 def zookeeper_page():
-    # Ensure the user is an employee (for access control) only if it's a POST request
     if request.method == "POST":
         if session.get('user_role') != 'employee':
             flash("Access denied. Employees only.", "danger")
-            return redirect(url_for('home'))  # Redirect if not an employee
+            return redirect(url_for('home'))  
         
-        # Handle different form actions
         if "add_animal" in request.form:
-            # Add animal logic
             flash("Animal added successfully!", "success")
         elif "delete_animal" in request.form:
-            # Delete animal logic
             flash("Animal deleted successfully!", "success")
         elif "edit_animal" in request.form:
-            # Edit animal logic
             flash("Animal details updated successfully!", "success")
         elif "update_health" in request.form:
-            # Update health status logic
             flash("Animal health status updated successfully!", "success")
         elif "simulate_event" in request.form:
-            # Simulate event logic
             flash("Event simulated successfully!", "success")
     
-    # Retrieve relevant data to pass to the template (e.g., zoo name and animals)
-    zoo_name = "Jungle Haven Zoo"  # Example, replace with actual data
-    animals = []  # Example, replace with actual animal data from your system
-
+    zoo_name = "Jungle Haven Zoo"
     return render_template("zookeeper.html", zoo_name=zoo_name, animals=animals)
 
 def allowed_file(filename):

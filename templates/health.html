@@ -26,30 +26,29 @@
                     </li>
         
                     {% if current_user.is_authenticated %}
-                        
-                        {% if session.get('user_role') == 'employee' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
-                            </li>
-                        {% endif %}
+                    {% if current_user.role == 'employee' %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                            <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
                         </li>
                     {% endif %}
-                </ul>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                    </li>
+                {% endif %}
+                                </ul>
             </div>
         </div>
     </nav>

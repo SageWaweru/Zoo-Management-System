@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Admin Panel</title>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
+        <div class="container-fluid">
+            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem;">
+                JungleHaven
+            </h1>
+    
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end px-4" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
+                    </li>
+        
+                    {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'employee' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
+                        </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                    </li>
+                {% endif %}
+                                </ul>
+            </div>
+        </div>
+    </nav>
+    <h1 class="text-center mt-3 mb-3">JungleHaven Admin Panel</h1>
+
+    <div class="container mb-5 d-flex justify-content-between">
+    <form id="set-employee-form" class="mb-4 w-50 p-4 " style="background-color: rgb(227, 234, 241); border-radius: .5rem;">
+        <h3>Mark User as Employee</h3>
+        <div class="form-group">
+            <label for="user-id">User ID (UID):</label>
+            <input type="text" id="user-id" name="user-id" class="form-control mb-2" required />
+        </div>
+        <button type="submit" id="set-employee-btn" class="btn text-white" style="background-color: rgb(13, 90, 90);">Mark as Employee</button>
+        <span id="set-employee-loading" style="display:none;">Processing...</span>
+    </form>
+
+    <form id="remove-employee-form" class="mb-4 w-50 p-4 mx-2" style="background-color: rgb(227, 234, 241); border-radius: .5rem;">
+        <h3>Remove Employee Status</h3>
+        <div class="form-group">
+            <label for="remove-user-id">User ID (UID):</label>
+            <input type="text" id="remove-user-id" name="remove-user-id" class="form-control mb-2" required />
+        </div>
+        <button type="submit" class="btn btn-danger" id="remove-employee-btn">Remove Employee</button>
+        <span id="remove-employee-loading" style="display:none;">Processing...</span>
+    </form>
+</div>
+<div class="container p-4" style="background-color: rgb(13, 90, 90);">
+    <h3 class="text-white">Employee List</h3>
+    <ul id="employee-list" class="list-group">
+    </ul>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const setEmployeeForm = document.getElementById("set-employee-form");
+        const removeEmployeeForm = document.getElementById("remove-employee-form");
+
+        setEmployeeForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const userId = document.getElementById("user-id").value;
+
+            document.getElementById("set-employee-btn").disabled = true;
+            document.getElementById("set-employee-loading").style.display = "inline";
+
+            try {
+                const response = await fetch('/set-employee', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.message);
+                    window.location.href = 'http://127.0.0.1:5000/admin'; 
+
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            } finally {
+                document.getElementById("set-employee-btn").disabled = false;
+                document.getElementById("set-employee-loading").style.display = "none";
+            }
+        });
+
+        removeEmployeeForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const userId = document.getElementById("remove-user-id").value;
+
+            document.getElementById("remove-employee-btn").disabled = true;
+            document.getElementById("remove-employee-loading").style.display = "inline";
+
+            try {
+                const response = await fetch('/remove-employee', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.message);
+                    window.location.href = 'http://127.0.0.1:5000/admin'; 
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            } finally {
+                document.getElementById("remove-employee-btn").disabled = false;
+                document.getElementById("remove-employee-loading").style.display = "none";
+            }
+        });
+
+        window.onload = async function() {
+            try {
+                const response = await fetch('/get-employees');
+                const data = await response.json();
+
+                if (response.ok) {
+                    const employeeList = document.getElementById("employee-list");
+                    data.employees.forEach(email => {
+                        const listItem = document.createElement("li");
+                        listItem.classList.add("list-group-item");
+                        listItem.textContent = email;  
+                        employeeList.appendChild(listItem);
+                    });
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            }
+        };
+    </script>
+</body>
+</html>
