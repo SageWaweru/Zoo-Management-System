@@ -1,23 +1,35 @@
 from zoo import Zoo
 from zookeeper import Zookeeper
-from animal import Animal,Mammal, Bird, Reptile
+from animal import Animal, Mammal, Bird, Reptile
 from events import random_event 
-from flask import Flask, render_template, request, redirect, url_for, flash,session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import os
-from werkzeug.utils import secure_filename
-from functools import wraps
 import firebase_admin
 from firebase_admin import auth, credentials
 from firebase_admin.exceptions import FirebaseError
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user,current_user
+from flask_session import Session
+from werkzeug.utils import secure_filename
+from functools import wraps
+from datetime import timedelta
 
 
-app = Flask(__name__) 
 
+# Initialize Flask app and configurations
+app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'default_fallback_key')
+app.config['SESSION_COOKIE_SAME'] = 'session'
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Set session timeout to 7 days.
 
 
-cred = credentials.Certificate('zoo-management-cbf7c-firebase-adminsdk-bbk8s-c93028b3a3.json')
+Session(app)
+
+# Firebase Admin initialization
+cred = credentials.Certificate(r'c:/Users/Lenovo/Downloads/zoo-management-cbf7c-firebase-adminsdk-bbk8s-e6e496a05b.json')  # Update the path
 firebase_admin.initialize_app(cred)
 
 UPLOAD_FOLDER = 'static/uploads'
@@ -27,23 +39,30 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+# Flask-Login initialization
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
 
-users = {}
-
+# User class for Flask-Login integration
 class User(UserMixin):
-    def __init__(self, uid, email, claims):
+    def __init__(self, email, uid, claims=None):
         self.id = uid
         self.email = email
-        self.claims = claims
+        self.uid = uid
+        self.claims = claims or {}
+    
+    def get_id(self):
+        return self.id     
 
 @login_manager.user_loader
 def load_user(user_id):
-    return users.get(user_id)
-
+    try:
+        firebase_user = auth.get_user(user_id)
+        return User(email=firebase_user.email, uid=firebase_user.uid, claims=firebase_user.custom_claims)
+    except auth.UserNotFoundError:
+        return None
+    
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -52,105 +71,132 @@ def register():
 
         try:
             user = auth.create_user(email=email, password=password)
+            uid = user.uid
+            claims = user.custom_claims if hasattr(user, 'custom_claims') else {}
+
+            user_obj = User(email=email, uid=uid, claims=claims)
+            login_user(user_obj) 
+
             flash("Registration successful! Please log in.", "success")
             return redirect(url_for("login"))
         except FirebaseError as e:
             flash(f"Error: {str(e)}", "danger")
-
+    
     return render_template("register.html")
+
+# Login route
+def authenticate_user(id_token):
+    try:
+        # Verify the Firebase ID token and decode the user's information
+        decoded_token = auth.verify_id_token(id_token)
+        return decoded_token  # This contains the user's Firebase UID and other info
+    except auth.InvalidIdTokenError:
+        return None
+
+@app.before_request
+def check_login():
+    print(session)  # Print the session data to see its state
+    if 'user' not in session and request.endpoint not in ['login', 'register']:
+        return redirect(url_for('login'))  # Redirect to login if not logged in and trying to access other pages
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
+    if 'user_id' in session:  # If the user is already logged in, redirect to home
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        
+        # Authenticate the user (verify email and password using Firebase)
+        decoded_token = authenticate_user(email, password)
+        if decoded_token:
+            user_obj = User(email=email, uid=decoded_token['uid'], claims=decoded_token.get('claims'))
+            login_user(user_obj)  # Log the user in with Flask-Login
 
-        try:
-            user = auth.get_user_by_email(email)
-            # Simulate password check (replace with real validation)
-            if user:
-                claims = user.custom_claims or {}
-                user_obj = User(user.uid, email, claims)
-                users[user.uid] = user_obj
-                login_user(user_obj)
-                session['user_claims'] = claims
-                flash("Login successful!", "success")
-                return redirect(url_for("home"))
-        except FirebaseError as e:
-            flash("Invalid email or password", "danger")
-        except Exception as e:
-            flash(f"Unexpected error: {str(e)}", "danger")
-
-    return render_template("login.html")
+            flash("Login successful!", "success")
+            return redirect(url_for('home'))
+        else:
+            flash("Invalid login credentials", "danger")
+    
+    return render_template('login.html')
 
 @app.route("/logout")
-@login_required
 def logout():
-    logout_user()
-    session.clear()
-    flash("You have been logged out.", "info")
-    return redirect(url_for("home"))
+    logout_user()  # Log out the user and clear the session
+    return redirect(url_for('home'))
 
-def employee_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        user_claims = session.get('user_claims', {})
-        if not user_claims.get('employee'):
-            flash("Access denied. Employees only.", "danger")
-            return redirect(url_for('home'))
-        return f(*args, **kwargs)
-    return decorated_function
+# Firebase Token verification (if using Firebase token from frontend)
+@app.route('/verify_token', methods=['POST'])
+def verify_token():
+    token = request.json.get('token')  # Firebase ID token sent from frontend
+
+    try:
+        decoded_token = auth.verify_id_token(token)
+        uid = decoded_token['uid']  # Get user UID from the decoded token
+        session['uid'] = uid  # Store UID in session
+        return jsonify({'success': True, 'uid': uid})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
 
 
 zoo_name = "Jungle Haven Zoo"
 animals = [
-        Mammal("Lea","Lion", "Female", 5, "Meat"),
+        Mammal("Lea", "Lion", "Female", 5, "Meat"),
         Mammal("Ellie", "Elephant", "Male", 10, "Leaves"),
-        Bird("Polly", "Parrot","Female", 3, "Seeds"),
-        Reptile("Coco", "Snake", "Female", 2 ,"Rats"),
+        Bird("Polly", "Parrot", "Female", 3, "Seeds"),
+        Reptile("Coco", "Snake", "Female", 2, "Rats"),
         Bird("Fifi", "Flamingo", "Female", 6, "Fish"),
-        Reptile("Oreo","Lizard", "Male", 2, "Insects")
+        Reptile("Oreo", "Lizard", "Male", 2, "Insects")
 ]
 
-zookeeper = Zookeeper("Sage","Jungle Haven Zoo")
+zookeeper = Zookeeper("Sage", "Jungle Haven Zoo")
 
 @app.route("/")
 def home():
-    return render_template("home.html", zoo_name=zoo_name, animals=animals)
+    print("Session data:", session)  # Print session data to debug
+    if 'user' not in session:
+        print("User is not logged in.")
+        return redirect(url_for('login'))
+    
+    print("User is logged in:", session['user'])
+    return render_template(
+        "home.html", user_role=session.get('user_role', 'guest'), zoo_name=zoo_name, animals=animals
+    )
 
-@app.route("/zookeeper")
-@employee_required
+@app.route("/zookeeper", methods=["GET", "POST"])
+@login_required
 def zookeeper_page():
- if request.method == "POST":
+    # Ensure the user is an employee (for access control) only if it's a POST request
+    if request.method == "POST":
+        if session.get('user_role') != 'employee':
+            flash("Access denied. Employees only.", "danger")
+            return redirect(url_for('home'))  # Redirect if not an employee
+        
+        # Handle different form actions
         if "add_animal" in request.form:
             # Add animal logic
-            flash("Animal added successfully!", "add_animal")
+            flash("Animal added successfully!", "success")
         elif "delete_animal" in request.form:
             # Delete animal logic
-            flash("Animal deleted successfully!", "delete_animal")
+            flash("Animal deleted successfully!", "success")
         elif "edit_animal" in request.form:
             # Edit animal logic
-            flash("Animal details updated successfully!", "edit_animal")
+            flash("Animal details updated successfully!", "success")
         elif "update_health" in request.form:
             # Update health status logic
-            flash("Animal health status updated successfully!", "health_update")
+            flash("Animal health status updated successfully!", "success")
         elif "simulate_event" in request.form:
             # Simulate event logic
-            flash("Event simulated successfully!", "event_simulation")
+            flash("Event simulated successfully!", "success")
+    
+    # Retrieve relevant data to pass to the template (e.g., zoo name and animals)
+    zoo_name = "Jungle Haven Zoo"  # Example, replace with actual data
+    animals = []  # Example, replace with actual animal data from your system
 
- return render_template("zookeeper.html", zoo_name=zoo_name, animals=animals)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    return render_template("zookeeper.html", zoo_name=zoo_name, animals=animals)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -210,10 +256,6 @@ def remove_animal():
     return redirect(url_for("zookeeper_page"))
     
 
-from werkzeug.utils import secure_filename
-import os
-from flask import request, redirect, url_for, flash
-
 @app.route("/edit_animal/<animal_name>", methods=["GET", "POST"])
 def edit_animal(animal_name):
     animal = next((a for a in animals if a.name == animal_name), None)
@@ -250,7 +292,7 @@ def edit_animal(animal_name):
 
     return render_template("edit.html", animal=animal)
 
-zoo = Zoo ("Jungle Haven Zoo")
+zoo = Zoo("Jungle Haven Zoo")
 
 @app.route("/trigger_event", methods=["POST"])
 def trigger_event():
@@ -274,51 +316,100 @@ def trigger_event():
     
     return redirect(url_for("zookeeper_page"))
 
-@app.route("/tickets", methods=["GET", "POST"])
+@app.route("/tickets")
 def tickets_page():
-    # Fetch tickets data (e.g., from database)
     tickets = [
-        {"id": 1, "name": "Concert A", "price": 50},
-        {"id": 2, "name": "Concert B", "price": 75},
-        {"id": 3, "name": "Concert C", "price": 100},
-    ]
 
-    if request.method == "POST":
-        flash("You need to log in to purchase tickets!", "warning")
-        return redirect(url_for('login'))
-
+    {
+        "id": 1,
+        "title": "Mammal Adventure",
+        "description": "Dive into the fascinating world of mammals! From agile monkeys swinging through trees to majestic lions ruling the savanna, this adventure is perfect for animal lovers of all ages. Learn intriguing facts about these creatures and their habitats, and witness their daily routines up close.",
+        "image": "static/images/mammaleticket.png",
+        "price": {
+            "children": 250,
+            "adult": 500,
+            "elder": 400
+        }
+    },
+    {
+        "id": 2,
+        "title": "Group Pass",
+        "description": "The ultimate package for families and friends! Enjoy a full day of exploration with access to all zoo attractions. This pass is specially designed to provide a fun, interactive, and budget-friendly experience for groups, ensuring everyone can create lasting memories together.",
+        "image": "static/images/group.png",
+        "price": {
+            "children": 200,
+            "adult": 1000,
+            "elder": 800
+        }
+    },
+    {
+        "id": 3,
+        "title": "Bird Watching",
+        "description": "Embark on a serene and captivating journey to observe some of the rarest and most vibrant bird species in their natural habitats. With guided assistance, you'll learn to spot and identify various birds while enjoying the tranquil surroundings of our lush aviary. Don't miss out on this amazing opportunity. ",
+        "image": "static/images/birdticket.png",
+        "price": {
+            "children": 150,
+            "adult": 300,
+            "elder": 250
+        }
+    },
+    {
+        "id": 4,
+        "title": "VIP Zoo Tour",
+        "description": "Experience the zoo like never before with our exclusive VIP Zoo Tour! Go behind the scenes to meet zookeepers, see how animals are cared for, and even feed select animals under expert supervision. This premium package is perfect for animal enthusiasts looking for a deeper connection with the wildlife.",
+        "image": "static/images/Mammal/default.jpg",
+        "price": {
+            "children": 750,
+            "adult": 1500,
+            "elder": 1200
+        }
+    }
+]
     return render_template("tickets.html", tickets=tickets)
 
 
 @app.route('/buy_tickets', methods=['GET', 'POST'])
-# @login_required
 def buy_tickets():
-    if not current_user.is_authenticated:
-        # Flash a message to notify the user
-        flash("You need to log in or register to purchase tickets.", "warning")
-        return redirect(url_for("tickets_page"))  # Redirect to the login page
+    tickets = {
+        1: {"title": "Mammal Adventure", "price": {"children": 250, "adult": 500, "elder": 400}},
+        2: {"title": "Group Pass", "price": {"children": 200, "adult": 1000, "elder": 800}},
+        3: {"title": "Bird Watching", "price": {"children": 150, "adult": 300, "elder": 250}},
+        4: {"title": "VIP Zoo Tour", "price": {"children": 750, "adult": 1500, "elder": 1200}},
+    }
 
     if request.method == 'POST':
-        ticket_type = request.form['ticket_type']
         try:
-            quantity = int(request.form['quantity'])
+            ticket_id = int(request.form.get("ticket_id", 0))
+            ticket_type = request.form.get("ticket_type", "").lower()
+            quantity = int(request.form.get("quantity", 0))
+
+            ticket = tickets.get(ticket_id)
+            if not ticket:
+                flash("Invalid ticket selected.", "error")
+                return redirect(url_for("buy_tickets"))
+
+            if ticket_type not in ticket["price"]:
+                flash("Invalid ticket type.", "error")
+                return redirect(url_for("buy_tickets"))
+
             if quantity <= 0:
-                flash("Please enter a valid number of tickets.", "ticket_error")
-                return redirect(url_for('buy_tickets'))
+                flash("Quantity must be greater than zero.", "error")
+                return redirect(url_for("buy_tickets"))
 
-            total_cost = zoo.sell_ticket(ticket_type, quantity)
-            if isinstance(total_cost, str):
-                flash(total_cost, "danger")
-                return redirect(url_for('buy_tickets'))
-            
-            flash(f"Successfully purchased {quantity} {ticket_type} ticket(s) for Ksh{total_cost}.", "ticket_message")
-            return redirect(url_for('buy_tickets'))
-        
+            total_cost = ticket["price"][ticket_type] * quantity
+
+            flash(
+                f"Purchase successful! You bought {quantity} {ticket_type.title()} ticket(s) for "
+                f"{ticket['title']} at Ksh{total_cost}.",
+                "ticket_message"
+            )
+            return redirect(url_for("buy_tickets"))
+
         except ValueError:
-            flash("Invalid input. Please enter a valid number.", "ticket_error")
-            return redirect(url_for('buy_tickets'))
-    return render_template("buytickets.html", ticket_prices=zoo.ticket_prices)
+            flash("Invalid input. Please provide valid data.", "ticket_error")
+            return redirect(url_for("buy_tickets"))
 
+    return render_template('buytickets.html', tickets=tickets)
 
 @app.route("/health_status", methods=["GET", "POST"])
 def health_status():
@@ -347,7 +438,7 @@ def health_status():
                 health_status = animal.health_status
                 description = ""  
 
-    return render_template( "health.html",animals=animals,animal_name=animal_name,health_status=health_status,description="")
+    return render_template("health.html", animals=animals, animal_name=animal_name, health_status=health_status, description="")
 
 @app.route("/clear_health_history", methods=["POST"])
 def clear_health_history():
@@ -356,66 +447,18 @@ def clear_health_history():
 
     if animal:
         animal.clear_health_history()
-        flash(f"Health history of {animal_name} has been cleared.", "health_update")
+        flash(f"Health history of {animal_name} cleared.", "success")
     else:
-        flash("Animal not found!", "danger")
+        flash(f"Animal {animal_name} not found.", "danger")
 
-    return redirect(url_for('health_status')) 
+    return redirect(url_for("health_status"))
+ 
+
+@app.after_request
+def add_cache_control(response):
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
-# def main():
-    
-#     print("Welcome to ZooMaster!")
-#     zoo_name = input("Enter the name of the zoo: ")
-#     zookeeper_name = input("Enter the name of the zookeeper: ")
-    
-#     my_zoo = Zoo(zoo_name)
-#     zookeeper = Zookeeper(zookeeper_name, my_zoo)
-#     my_zoo.load_from_csv("animals.csv")
-
-#     while True:
-#         print("\n1. Display animals")
-#         print("2. Add animal")
-#         print("3. Remove animal")
-#         print("4. Trigger random event")
-#         print("5. Save data")
-#         print("6. Load data")
-#         print("7. Exit")
-        
-#         choice = input("Choose an option: ")
-        
-#         if choice == "1":
-#             my_zoo.display_animals()
-#         elif choice == "2":
-#             name = input("Name: ")
-#             species = input("Species: ")
-#             gender = input("Gender: ")
-#             age = int(input("Age: "))
-#             type = input("Type (Mammal/Bird/Reptile): ").capitalize()
-            
-#             if type == "Mammal":
-#                 my_zoo.add_animal(Mammal(name, species, gender, age))
-#             elif type == "Bird":
-#                 my_zoo.add_animal(Bird(name, species, gender, age))
-#             elif type == "Reptile":
-#                 my_zoo.add_animal(Reptile(name, species, gender, age))
-#             else:
-#                 print("Invalid type!")
-#         elif choice == "3":
-#             name = input("Enter the name of the animal to remove: ")
-#             my_zoo.remove_animal(name)
-#         elif choice == "4":
-#             zookeeper.trigger_random_event()
-#         elif choice == "5":
-#             my_zoo.save_to_csv("animals.csv")
-#         elif choice == "6":
-#             my_zoo.load_from_csv("animals.csv")
-#         elif choice == "7":
-#             print("Goodbye!")
-#             break
-#         else:
-#             print("Invalid choice, please try again.")
-
-if __name__ == "__main__":
-    # main()
+if __name__ == '__main__':
     app.run(debug=True)

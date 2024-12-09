@@ -3,128 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buy Tickets - {{ zoo_name }}</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <title>Buy Tickets</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body style="background-color: #f8f9fa;">
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
         <div class="container-fluid">
-            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;">
-                JungleHaven
-            </h1>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse justify-content-end px-4" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
-                    </li>
-                    {% if current_user.is_authenticated %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
-                    </li>
-                    {% else %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
-                    </li>
-                    {% endif %}
-    
-                </ul>
-            </div>
+            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem;">JungleHaven</h1>
         </div>
     </nav>
-    
-<div class="container my-5">
-    <div class="card shadow-lg" style="max-width: 600px; margin: 0 auto;">
-        <div class="card-header text-center text-white" style="background-color: rgb(13, 90, 90);">
-            <h2>Buy Tickets</h2>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('buy_tickets') }}">
-                <div class="form-group">
-                    <label for="ticket_type" class="font-weight-bold">Ticket Type</label>
-                    <select name="ticket_type" id="ticket_type" class="form-control">
-                        <option value="child">Child - Ksh{{ ticket_prices['child'] }}</option>
-                        <option value="adult">Adult - Ksh{{ ticket_prices['adult'] }}</option>
-                        <option value="senior">Senior - Ksh{{ ticket_prices['senior'] }}</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="quantity" class="font-weight-bold">Quantity</label>
-                    <input type="number" name="quantity" id="quantity" class="form-control" min="1" required>
-                </div>
-                
-                <div class="form-group d-flex justify-content-between align-items-center">
-                    <button type="submit" class="btn text-white" style="background-color: rgb(13, 90, 90);">Purchase Tickets</button>
-                    <span class="font-weight-bold">Total: Ksh <span id="total-cost">0</span></span>
-                </div>
-            </form>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="mt-3">
-                    {% for category, message in messages %}
-                        {% if category == 'ticket_message' %}
-                            <div class="alert alert-success mt-2">{{ message }}</div>
-                        {% elif category == 'ticket_error' %}
-                            <div class="alert alert-warning mt-2">{{ message }}</div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        
+    <div class="container my-5">
+        <div class="card shadow-lg" style="max-width: 600px; margin: 0 auto;">
+            <div class="card-header d-flex justify-content-between text-white" style="background-color: rgb(13, 90, 90);">
+                <h2>Buy Tickets</h2>
+                <a class="nav-link" href="{{ url_for('tickets_page') }}">✖</a>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('buy_tickets') }}">
+                    <div class="mb-3">
+                        <label for="ticket_id" class="form-label">Select Ticket:</label>
+                        <select id="ticket_id" name="ticket_id" class="form-select" required>
+                            <option value="" disabled selected> Select a Ticket </option>
+                            {% for id, ticket in tickets.items() %}
+                                <option value="{{ id }}">{{ ticket.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ticket_type" class="form-label">Select Ticket Type:</label>
+                        <select id="ticket_type" name="ticket_type" class="form-select" required>
+                            <option value="" disabled selected> Select Ticket Type </option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity:</label>
+                        <input type="number" id="quantity" name="quantity" class="form-control" min="1" required>
+                    </div>
+
+                    <div class="form-group d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn text-white" style="background-color: rgb(13, 90, 90);">Purchase Tickets</button>
+                        <span class="font-weight-bold">Total: Ksh <span id="total-cost">0</span></span>
+                    </div>
+                </form>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mt-3">
+                        {% for category, message in messages %}
+                            {% if category == 'ticket_message' %}
+                                <div class="alert alert-success mt-2">{{ message }}</div>
+                            {% elif category == 'ticket_error' %}
+                                <div class="alert alert-warning mt-2">{{ message }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% endwith %}
+                        </div>
         </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const tickets = {{ tickets | tojson }};
+        const ticketTypeDropdown = document.getElementById('ticket_type');
+        const ticketIdDropdown = document.getElementById('ticket_id');
+        const quantityInput = document.getElementById('quantity');
+        const totalCostElement = document.getElementById('total-cost');
 
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+        // Update Ticket Type Dropdown when a Ticket is Selected
+        ticketIdDropdown.addEventListener('change', function () {
+            const selectedTicketId = this.value;
+            const selectedTicket = tickets[selectedTicketId];
+            
+            ticketTypeDropdown.innerHTML = '<option value="" disabled selected>-- Select Ticket Type --</option>';
+            if (selectedTicket && selectedTicket.price) {
+                for (const [type, price] of Object.entries(selectedTicket.price)) {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} - Ksh${price}`;
+                    ticketTypeDropdown.appendChild(option);
+                }
+            }
+            updateTotal(); // Reset total when ticket type changes
+        });
 
-<script>
-    const ticketPrices = {{ ticket_prices | tojson }};
+        // Update Total Cost
+        function updateTotal() {
+            const selectedType = ticketTypeDropdown.value;
+            const quantity = parseInt(quantityInput.value) || 0;
+            const selectedTicketId = ticketIdDropdown.value;
 
-    function updateTotal() {
-        const ticketType = document.getElementById('ticket_type').value;
-        const quantity = parseInt(document.getElementById('quantity').value) || 0; 
+            if (selectedTicketId && tickets[selectedTicketId] && tickets[selectedTicketId].price[selectedType]) {
+                const price = tickets[selectedTicketId].price[selectedType];
+                totalCostElement.textContent = (price * quantity).toFixed(2);
+            } else {
+                totalCostElement.textContent = "0";
+            }
+        }
 
-        const total = ticketPrices[ticketType] * quantity;
-
-        document.getElementById('total-cost').innerText = total.toFixed(2); 
-    }
-
-    document.getElementById('ticket_type').addEventListener('change', updateTotal);
-    document.getElementById('quantity').addEventListener('input', updateTotal); 
-
-    updateTotal();
-</script>
-
+        ticketTypeDropdown.addEventListener('change', updateTotal);
+        quantityInput.addEventListener('input', updateTotal);
+    </script>
 </body>
 </html>

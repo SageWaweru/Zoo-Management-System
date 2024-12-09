@@ -10,10 +10,10 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
         <div class="container-fluid">
-            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;">
+            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem;">
                 JungleHaven
             </h1>
-            
+    
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -22,48 +22,69 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
                     </li>
+        
                     {% if current_user.is_authenticated %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
-                    </li>
+                        
+                        {% if session.get('user_role') == 'employee' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
+                            </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                        </li>
                     {% else %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                        </li>
                     {% endif %}
-    
                 </ul>
             </div>
         </div>
     </nav>
-    
-    <h1>Available Tickets</h1>
-    <ul>
+    <h2 class="mt-3 mb-2">Available Tickets</h2>
+    <div class="container-fluid d-flex justify-content-center">
+        <div class="row ">
+            {% for ticket in tickets %}
+            <div class="col-md-3 mb-4">
+                <div class="card" style="width: 18rem;">
+                    <img src="{{ ticket.image }}" class="card-img-top" height="280" alt="{{ ticket.title }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ ticket.title }}</h5>
+                        <p class="card-text">{{ ticket.description }}</p>
+                        <form method="POST" action="{{ url_for('buy_tickets') }}">
+                            <label for="ticketType">Select To View Prices:</label>
+                            <select name="ticket_type" class="form-control mb-3" required>
+                                <option value="children">Children -  Ksh{{ ticket.price.children }}</option>
+                                <option value="adult">Adult -  Ksh{{ ticket.price.adult }}</option>
+                                <option value="elder">Elder -  Ksh{{ ticket.price.elder }}</option>
+                            </select>
+                            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                            {% if current_user.is_authenticated %}
+                            <button type="submit" style="background-color: rgb(13, 90, 90);" class="btn text-white w-100">Buy Now</button>
+                            {% else %}
+                           <a  style="color: rgb(13, 90, 90);" href="{{ url_for('login') }}">Please log in to purchase tickets.</a> 
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+        <!-- <ul>
         {% for ticket in tickets %}
             <li>
-                {{ ticket.name }} - ${{ ticket.price }}
+                {{ ticket.name }} -  Ksh{{ ticket.price }}
                 <form method="POST" action="{{ url_for('buy_tickets', ticket_id=ticket.id) }}">
                     <button type="submit">Buy Now</button>
                 </form>
@@ -78,7 +99,7 @@
             {% endfor %}
         </ul>
     {% endif %}
-{% endwith %}
+{% endwith %} -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>

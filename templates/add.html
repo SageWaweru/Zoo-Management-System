@@ -9,10 +9,10 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow">
         <div class="container-fluid">
-            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;">
+            <h1 class="navbar-brand" style="color: rgb(13, 90, 90); font-size: 2.5rem; letter-spacing: .3rem;">
                 JungleHaven
             </h1>
-            
+    
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -21,38 +21,31 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('home') }}" style="font-size: 1.2rem;">Home</a>
                     </li>
+        
                     {% if current_user.is_authenticated %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
-                    </li>
+                        
+                        {% if session.get('user_role') == 'employee' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('zookeeper_page') }}" style="font-size: 1.2rem;">Employee</a>
+                            </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}" style="font-size: 1.2rem;">Logout</a>
+                        </li>
                     {% else %}
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('trigger_event') }}" style="font-size: 1.2rem;">Noticeboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
-                    </li>
-    
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('tickets_page') }}" style="font-size: 1.2rem;">Tickets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('login') }}" style="font-size: 1.2rem;">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('register') }}" style="font-size: 1.2rem;">Register</a>
+                        </li>
                     {% endif %}
-    
                 </ul>
             </div>
         </div>
